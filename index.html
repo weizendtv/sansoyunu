@@ -18,7 +18,6 @@
     storageBucket: "weizendtv-sans-oyunlari.firebasestorage.app", // Kendi Storage Bucket'ın
     messagingSenderId: "294249094569", // Kendi Messaging Sender ID'n
     appId: "1:294249094569:web:8d6a7ee6ea88437703f8b8", // Kendi App ID'n
-    // *** Realtime Database URL'ini kendi projenin doğru URL'siyle güncelledim ***
     databaseURL: "https://weizendtv-sans-oyunlari-default-rtdb.europe-west1.firebasedatabase.app"
   };
 
@@ -31,16 +30,15 @@
   window.auth = getAuth(app);
 
   // Firebase modular fonksiyonlarını global scope'a taşıyoruz
-  // Bu sayede ana script block'u içerisinde doğrudan çağrılabilirler
-  window.ref = ref;
-  window.onValue = onValue;
-  window.set = set;
-  window.update = update;
-  window.remove = remove;
-  window.push = push;
-  window.signInWithEmailAndPassword = signInWithEmailAndPassword;
-  window.onAuthStateChanged = onAuthStateChanged;
-  window.signOut = signOut;
+  window.firebase_ref = ref; // İsmini çakışmaması için değiştirdim
+  window.firebase_onValue = onValue;
+  window.firebase_set = set;
+  window.firebase_update = update;
+  window.firebase_remove = remove;
+  window.firebase_push = push;
+  window.firebase_signInWithEmailAndPassword = signInWithEmailAndPassword;
+  window.firebase_onAuthStateChanged = onAuthStateChanged;
+  window.firebase_signOut = signOut;
 
   console.log("Firebase SDK v9 başarıyla başlatıldı ve global erişime hazır.");
 </script>
@@ -417,18 +415,7 @@
   // Firebase SDK v9 (Modular API) fonksiyonlarını kullanmak için window objesine atadık.
   // Bu, HTML'deki inline ve <script> tag'indeki fonksiyonların erişebilmesini sağlar.
   // Bu kısım, yukarıdaki <script type="module"> içinde yapıldı.
-  // Burada sadece referanslarını alıyoruz.
-  const db = window.db;
-  const auth = window.auth;
-  const ref = window.ref;
-  const onValue = window.onValue;
-  const set = window.set;
-  const update = window.update;
-  const remove = window.remove;
-  const push = window.push;
-  const signInWithEmailAndPassword = window.signInWithEmailAndPassword;
-  const onAuthStateChanged = window.onAuthStateChanged;
-  const signOut = window.signOut;
+  // Burada sadece referanslarını alıyoruz ve `window.` ön ekini kullanarak çağırıyoruz.
 
   let currentUser = null;
   let isAdmin = false;
@@ -444,7 +431,7 @@
   let countdownInterval = null;
 
   // Sayfa yüklendiğinde ve oturum durumu değiştiğinde çalışacak kısım
-  onAuthStateChanged(auth, user => {
+  window.firebase_onAuthStateChanged(window.auth, user => {
     if (user) {
       // Firebase Auth ile giriş yapmış bir kullanıcı var
       const firebaseAuthUsername = user.email.split('@')[0].toLowerCase(); // E-postanın başını kullanıcı adı olarak alıyoruz
@@ -462,7 +449,7 @@
         // signOut(auth) yaparak bu oturumu kapatabiliriz eğer Realtime DB'deki kullanıcılar harici bir girişse.
         // Veya Kick kullanıcı adlarını Firebase Auth ile eşleştirmemiz gerekir.
         // Şimdilik, admin dışındaki Auth kullanıcılarını direkt normal loginDiv'e yönlendiriyoruz.
-        signOut(auth).then(() => {
+        window.firebase_signOut(window.auth).then(() => {
           displayMessage("Lütfen Kick Kullanıcı Adınız ile giriş yapın.");
           document.getElementById("loginDiv").style.display = "block";
           document.getElementById("gameDiv").style.display = "none";
@@ -500,7 +487,7 @@
     if (user === "weizendtv") {
       const adminEmail = "weizendtv@weizendtvoyun.com"; // Firebase Auth'a eklediğin e-posta
       try {
-        await signInWithEmailAndPassword(auth, adminEmail, pass);
+        await window.firebase_signInWithEmailAndPassword(window.auth, adminEmail, pass);
         // onAuthStateChanged tetiklenecek ve afterLogin çağrılacak
         displayMessage("Admin olarak giriş başarılı!");
       } catch (error) {
@@ -515,9 +502,7 @@
     }
 
     // Normal kullanıcı girişi (Realtime Database üzerinden)
-    // onValue, sürekli dinleme yapar. Sadece bir kere okumak için get() kullanmak daha iyidir.
-    // Ancak, onValue'yu { onlyOnce: true } seçeneği ile de tek seferlik okuma yapabiliriz.
-    onValue(ref(db, 'users/' + user), (snap) => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users/' + user), (snap) => {
       if (snap.exists()) {
         let data = snap.val();
         console.log("Kullanıcı verisi bulundu:", data);
@@ -537,7 +522,7 @@
       } else {
         // Yeni kullanıcı kaydı
         console.log("Yeni kullanıcı kaydı yapılıyor:", user);
-        set(ref(db, 'users/' + user), {
+        window.firebase_set(window.firebase_ref(window.db, 'users/' + user), {
           password: pass,
           balance: 0,
           approved: false,
@@ -568,7 +553,7 @@
       if (blockedUntil && Date.now() < blockedUntil) {
         displayBlockedMessage(blockedUntil);
       } else if (blockedUntil && Date.now() >= blockedUntil) {
-        update(ref(db, 'users/' + userToCheck), { blocked: false, blockedUntil: null })
+        window.firebase_update(window.firebase_ref(window.db, 'users/' + userToCheck), { blocked: false, blockedUntil: null })
           .then(() => {
             displayMessage("Engelleme süreniz doldu. Giriş yapılıyor...");
             currentUser = userToCheck;
@@ -611,7 +596,7 @@
 
   async function logout() {
     try {
-      await signOut(auth); // Firebase Auth oturumunu kapat
+      await window.firebase_signOut(window.auth); // Firebase Auth oturumunu kapat
       currentUser = null;
       isAdmin = false;
       location.reload(); // Sayfayı yenileyerek giriş ekranına dön
@@ -627,14 +612,14 @@
       return;
     }
     // onValue sürekli dinleme yapar. Bakiye anlık değiştiği için bu uygundur.
-    onValue(ref(db, 'users/' + currentUser + '/balance'), snap => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users/' + currentUser + '/balance'), snap => {
       document.getElementById("balance").textContent = "Bakiye: " + (snap.val() || 0) + " puan";
     });
   }
 
   function loadUserRankingsAndBoxCounts() {
     // onValue sürekli dinleme yapar. Kullanıcı sıralaması değiştiğinde güncellenir.
-    onValue(ref(db, 'users'), userSnap => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users'), userSnap => {
       let usersData = userSnap.val();
 
       if (!usersData) {
@@ -680,7 +665,7 @@
 
   function loadWinners() {
     // onValue sürekli dinleme yapar. Kazananlar listesi değiştiğinde güncellenir.
-    onValue(ref(db, 'winners'), snap => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'winners'), snap => {
       let data = snap.val();
       if (!data) { document.getElementById("winners").innerHTML = "Henüz kazanan yok."; return; }
       let winnerCount = {};
@@ -693,7 +678,7 @@
 
   function loadPendingUsers() {
     // onValue sürekli dinleme yapar. Onay bekleyenler listesi değiştiğinde güncellenir.
-    onValue(ref(db, 'users'), snap => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users'), snap => {
       const data = snap.val();
       let html = "";
       for (const u in data) {
@@ -711,7 +696,7 @@
 
   function loadAllUsers() {
     // onValue sürekli dinleme yapar. Tüm kullanıcılar listesi değiştiğinde güncellenir.
-    onValue(ref(db, 'users'), snap => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users'), snap => {
       const data = snap.val();
       let html = "";
       for (const u in data) {
@@ -795,7 +780,7 @@
   function openPointAdjustmentModal(username) {
     targetUserForAdjustment = username;
     document.getElementById('adjUserName').textContent = username;
-    onValue(ref(db, 'users/' + username + '/balance'), snap => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users/' + username + '/balance'), snap => {
       document.getElementById('adjUserBalance').textContent = snap.val() || 0;
     }, {
       onlyOnce: true
@@ -816,10 +801,10 @@
       return;
     }
 
-    onValue(ref(db, 'users/' + targetUserForAdjustment), (snap) => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users/' + targetUserForAdjustment), (snap) => {
       let userBalance = snap.val().balance || 0;
       userBalance = add ? userBalance + amount : Math.max(userBalance - amount, 0);
-      set(ref(db, 'users/' + targetUserForAdjustment + '/balance'), userBalance)
+      window.firebase_set(window.firebase_ref(window.db, 'users/' + targetUserForAdjustment + '/balance'), userBalance)
         .then(() => {
           displayMessage(`${targetUserForAdjustment} kullanıcısının yeni bakiyesi: ${userBalance} puan`);
           closePointAdjustmentModal();
@@ -852,7 +837,7 @@
     }
 
     const blockedUntil = Date.now() + duration * 60 * 1000;
-    update(ref(db, 'users/' + targetUserForBlock), {
+    window.firebase_update(window.firebase_ref(window.db, 'users/' + targetUserForBlock), {
       blocked: true,
       blockedUntil: blockedUntil
     }).then(() => {
@@ -867,7 +852,7 @@
     if (currentStatus) {
       customConfirm(user + " kullanıcısının engelini kaldırmak istediğinize emin misiniz?", (result) => {
         if (result) {
-          update(ref(db, 'users/' + user), { blocked: false, blockedUntil: null })
+          window.firebase_update(window.firebase_ref(window.db, 'users/' + user), { blocked: false, blockedUntil: null })
             .then(() => {
               displayMessage(user + " kullanıcısının engeli kaldırıldı.");
               loadAllUsers();
@@ -884,7 +869,7 @@
   function approveUser(user) {
     customConfirm(user + " kullanıcısını onaylamak istediğinize emin misiniz?", (result) => {
       if (result) {
-        update(ref(db, 'users/' + user), { approved: true, blocked: false, blockedUntil: null })
+        window.firebase_update(window.firebase_ref(window.db, 'users/' + user), { approved: true, blocked: false, blockedUntil: null })
           .then(() => {
             displayMessage(user + " kullanıcısı onaylandı.");
             loadPendingUsers();
@@ -898,7 +883,7 @@
   function denyUser(user, fromPending = false) {
     customConfirm(user + " kullanıcısını tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve kullanıcı adı tekrar kullanılabilir hale gelir!", (result) => {
       if (result) {
-        remove(ref(db, 'users/' + user))
+        window.firebase_remove(window.firebase_ref(window.db, 'users/' + user))
           .then(() => {
             displayMessage(user + " kullanıcısı silindi ve adı tekrar kullanılabilir.");
             if (fromPending) {
@@ -920,7 +905,7 @@
 
     customConfirm(`Tüm onaylı ve engellenmemiş kullanıcılara ${add ? 'eklemek' : 'silmek'} istediğinizden emin misiniz?`, (result) => {
       if (result) {
-        onValue(ref(db, 'users'), (snap) => {
+        window.firebase_onValue(window.firebase_ref(window.db, 'users'), (snap) => {
           const updatesObj = {};
           snap.forEach(child => {
             if (child.val().approved && !child.val().blocked && child.key !== "weizendtv") {
@@ -930,7 +915,7 @@
             }
           });
           // Update fonksiyonu doğrudan root (/) referansına updatesObj'yi uygulayabilir
-          update(ref(db), updatesObj)
+          window.firebase_update(window.firebase_ref(window.db), updatesObj)
             .then(() => displayMessage("Tüm onaylı kullanıcıların bakiyeleri güncellendi."))
             .catch(error => console.error("Toplu bakiye güncelleme hatası: ", error));
         }, {
@@ -959,14 +944,14 @@
         boxes[winnerIndex].points = pointsPerWinner;
       }
     }
-    set(ref(db, 'boxes'), boxes)
+    window.firebase_set(window.firebase_ref(window.db, 'boxes'), boxes)
       .then(() => console.log("Kutular oluşturuldu/sıfırlandı."))
       .catch(error => console.error("Kutu oluşturma hatası: ", error));
   }
 
   function loadBoxes() {
     // onValue sürekli dinleme yapar. Kutuların durumu değiştiğinde güncellenir.
-    onValue(ref(db, 'boxes'), snap => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'boxes'), snap => {
       if (!snap.exists()) {
         createBoxes();
       } else {
@@ -1007,14 +992,14 @@
     if (isAdmin) { // Adminler puan harcamadan kutu açabilir
       boxes[index].opened = true;
       boxes[index].opener = 'Admin';
-      set(ref(db, 'boxes'), boxes)
+      window.firebase_set(window.firebase_ref(window.db, 'boxes'), boxes)
         .then(() => renderBoxes())
         .catch(error => console.error("Admin kutu açma hatası: ", error));
       return;
     }
 
     // Kullanıcının güncel verisini tek seferlik oku
-    onValue(ref(db, 'users/' + currentUser), (snap) => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users/' + currentUser), (snap) => {
       let user = snap.val();
       if (!user) {
         displayMessage("Kullanıcı bilginiz bulunamadı. Lütfen tekrar giriş yapın.");
@@ -1047,14 +1032,14 @@
         const pointsWon = boxes[index].points || 1000;
         user.balance += pointsWon;
         updatesObj['users/' + currentUser + '/balance'] = user.balance;
-        push(ref(db, 'winners'), { name: currentUser, date: new Date().toLocaleString(), points: pointsWon });
+        window.firebase_push(window.firebase_ref(window.db, 'winners'), { name: currentUser, date: new Date().toLocaleString(), points: pointsWon });
         displayMessage(`Tebrikler! ${pointsWon} puan kazandınız! Yeni bakiyeniz: ${user.balance}`);
       } else {
         displayMessage(`Kutu açıldı. ${COST_PER_BOX} puan harcadınız. Yeni bakiyeniz: ${user.balance}`);
       }
 
       // Toplu güncelleme yap
-      update(ref(db), updatesObj)
+      window.firebase_update(window.firebase_ref(window.db), updatesObj)
         .then(() => renderBoxes())
         .catch(error => console.error("Kutu açma işlemi hatası: ", error));
     }, {
@@ -1074,7 +1059,7 @@
             b.opener = 'Admin (Hepsi Açıldı)';
           }
         });
-        set(ref(db, 'boxes'), boxes)
+        window.firebase_set(window.firebase_ref(window.db, 'boxes'), boxes)
           .then(() => renderBoxes())
           .catch(error => console.error("Tüm kutuları açma hatası: ", error));
       }
@@ -1086,14 +1071,14 @@
       if (result) {
         createBoxes(); // Kutuları yeniden oluşturur (kapatır ve yeni kazanan belirler)
 
-        onValue(ref(db, 'users'), (snap) => {
+        window.firebase_onValue(window.firebase_ref(window.db, 'users'), (snap) => {
           const updatesObj = {};
           snap.forEach(child => {
             if (child.key !== "weizendtv") { // Admini sıfırlama dışında bırak
               updatesObj['users/' + child.key + '/currentSessionBoxesOpened'] = 0;
             }
           });
-          update(ref(db), updatesObj)
+          window.firebase_update(window.firebase_ref(window.db), updatesObj)
             .then(() => displayMessage("Oyun başarıyla sıfırlandı. Tüm kullanıcıların günlük kutu açma sayıları sıfırlandı."))
             .catch(error => console.error("Günlük kutu açma sıfırlama hatası: ", error));
         }, {
@@ -1106,14 +1091,14 @@
   function resetDailyBoxOpenRanking() {
     customConfirm("Tüm kullanıcıların 'Şu An Açılan Kutu' sayılarını sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.", (result) => {
       if (result) {
-        onValue(ref(db, 'users'), (snap) => {
+        window.firebase_onValue(window.firebase_ref(window.db, 'users'), (snap) => {
           const updatesObj = {};
           snap.forEach(child => {
             if (child.key !== "weizendtv") { // Admini sıfırlama dışında bırak
               updatesObj['users/' + child.key + '/currentSessionBoxesOpened'] = 0;
             }
           });
-          update(ref(db), updatesObj)
+          window.firebase_update(window.firebase_ref(window.db), updatesObj)
             .then(() => displayMessage("Tüm kullanıcıların günlük kutu açma sayıları sıfırlandı."))
             .catch(error => console.error("Günlük kutu açma sıfırlama hatası: ", error));
         }, {
@@ -1126,14 +1111,14 @@
   function resetAllTimeBoxOpenRanking() {
     customConfirm("Tüm kullanıcıların 'Toplam Açılan Kutu' sayılarını sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.", (result) => {
       if (result) {
-        onValue(ref(db, 'users'), (snap) => {
+        window.firebase_onValue(window.firebase_ref(window.db, 'users'), (snap) => {
           const updatesObj = {};
           snap.forEach(child => {
             if (child.key !== "weizendtv") { // Admini sıfırlama dışında bırak
               updatesObj['users/' + child.key + '/boxesOpenedCount'] = 0;
             }
           });
-          update(ref(db), updatesObj)
+          window.firebase_update(window.firebase_ref(window.db), updatesObj)
             .then(() => displayMessage("Tüm kullanıcıların tüm zamanlar kutu açma sayıları sıfırlandı."))
             .catch(error => console.error("Tüm zamanlar kutu açma sıfırlama hatası: ", error));
         }, {
@@ -1146,7 +1131,7 @@
   function resetWinnersRanking() {
     customConfirm("Hediye kazananlar sıralamasını sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.", (result) => {
       if (result) {
-        remove(ref(db, 'winners'))
+        window.firebase_remove(window.firebase_ref(window.db, 'winners'))
           .then(() => displayMessage("Hediye kazananlar sıralaması sıfırlandı."))
           .catch(error => console.error("Kazananlar sıralaması sıfırlama hatası: ", error));
       }
@@ -1155,7 +1140,7 @@
 
   function loadTotalOpenedBoxesCount() {
     // onValue sürekli dinleme yapar. Açılan kutu sayısı değiştiğinde güncellenir.
-    onValue(ref(db, 'boxes'), snap => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'boxes'), snap => {
       const allBoxes = snap.val();
       let openedCount = 0;
       if (allBoxes) {
@@ -1167,7 +1152,7 @@
 
   function searchUsers() {
     const term = document.getElementById("searchUser").value.trim().toLowerCase();
-    onValue(ref(db, 'users'), (snap) => {
+    window.firebase_onValue(window.firebase_ref(window.db, 'users'), (snap) => {
       const data = snap.val();
       let html = "";
       for (const u in data) {
@@ -1202,7 +1187,7 @@
       if (timeLeft <= 0) {
         document.getElementById('blockedCountdown').textContent = "Engel süreniz doldu. Lütfen tekrar giriş yapın.";
         clearInterval(countdownInterval);
-        update(ref(db, 'users/' + currentUser), { blocked: false, blockedUntil: null })
+        window.firebase_update(window.firebase_ref(window.db, 'users/' + currentUser), { blocked: false, blockedUntil: null })
           .then(() => {
             displayMessage("Engeliniz kaldırıldı, lütfen tekrar giriş yapın.");
             closeBlockedMessageModal();
