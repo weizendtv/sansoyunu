@@ -5,26 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WeizendTv Şans Oyunu</title>
 <script type="module">
+  // Firebase SDK v9 (modular API) kütüphanelerini import ediyoruz
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
   import { getDatabase, ref, onValue, set, update, remove, push } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
 
-  // Your NEW web app's Firebase configuration
+  // !!! BURAYI KENDİ YENİ FIREBASE PROJE AYARLARINLA KONTROL ET VE GEREKİRSE GÜNCELLE !!!
   const firebaseConfig = {
-    apiKey: "AIzaSyDnCXQAln2oFhcCNGdtWsAqgSY8FPaDuMM",
-    authDomain: "weizendtv-sans-oyunlari.firebaseapp.com",
-    projectId: "weizendtv-sans-oyunlari",
-    storageBucket: "weizendtv-sans-oyunlari.firebasestorage.app",
-    messagingSenderId: "294249094569",
-    appId: "1:294249094569:web:8d6a7ee6ea88437703f8b8"
+    apiKey: "AIzaSyDnCXQAln2oFhcCNGdtWsAqgSY8FPaDuMM", // Kendi API anahtarın
+    authDomain: "weizendtv-sans-oyunlari.firebaseapp.com", // Kendi Auth Domain'in
+    projectId: "weizendtv-sans-oyunlari", // Kendi Project ID'n
+    storageBucket: "weizendtv-sans-oyunlari.firebasestorage.app", // Kendi Storage Bucket'ın
+    messagingSenderId: "294249094569", // Kendi Messaging Sender ID'n
+    appId: "1:294249094569:web:8d6a7ee6ea88437703f8b8", // Kendi App ID'n
+    // *** Realtime Database URL'ini kendi projenin doğru URL'siyle güncelledim ***
+    databaseURL: "https://weizendtv-sans-oyunlari-default-rtdb.europe-west1.firebasedatabase.app"
   };
 
-  // Initialize Firebase
+  // Firebase'i başlat
   const app = initializeApp(firebaseConfig);
+
+  // Firebase servislerini al ve global olarak erişilebilir hale getir
+  // Ana script block'u type="module" olmadığı için bu şekilde global'e atıyoruz
   window.db = getDatabase(app);
   window.auth = getAuth(app);
 
-  // Expose modular functions to the global scope for the existing script block
+  // Firebase modular fonksiyonlarını global scope'a taşıyoruz
+  // Bu sayede ana script block'u içerisinde doğrudan çağrılabilirler
   window.ref = ref;
   window.onValue = onValue;
   window.set = set;
@@ -35,7 +42,7 @@
   window.onAuthStateChanged = onAuthStateChanged;
   window.signOut = signOut;
 
-  console.log("Firebase SDK v9 başarıyla başlatıldı.");
+  console.log("Firebase SDK v9 başarıyla başlatıldı ve global erişime hazır.");
 </script>
 <style>
   body {
@@ -409,6 +416,8 @@
 <script>
   // Firebase SDK v9 (Modular API) fonksiyonlarını kullanmak için window objesine atadık.
   // Bu, HTML'deki inline ve <script> tag'indeki fonksiyonların erişebilmesini sağlar.
+  // Bu kısım, yukarıdaki <script type="module"> içinde yapıldı.
+  // Burada sadece referanslarını alıyoruz.
   const db = window.db;
   const auth = window.auth;
   const ref = window.ref;
@@ -442,6 +451,7 @@
       console.log("Firebase Auth üzerinden oturum algılandı:", firebaseAuthUsername);
 
       // Admin özel kullanıcı adı kontrolü (Firebase Auth email'i ile)
+      // Admin email'i: weizendtv@weizendtvoyun.com
       if (firebaseAuthUsername === "weizendtv") {
         currentUser = "WeizendTv"; // Görüntülenen isim
         isAdmin = true;
@@ -505,6 +515,8 @@
     }
 
     // Normal kullanıcı girişi (Realtime Database üzerinden)
+    // onValue, sürekli dinleme yapar. Sadece bir kere okumak için get() kullanmak daha iyidir.
+    // Ancak, onValue'yu { onlyOnce: true } seçeneği ile de tek seferlik okuma yapabiliriz.
     onValue(ref(db, 'users/' + user), (snap) => {
       if (snap.exists()) {
         let data = snap.val();
@@ -542,7 +554,7 @@
         });
       }
     }, {
-      onlyOnce: true // Sadece bir kere oku
+      onlyOnce: true // Sadece bir kere oku ve dinlemeyi durdur
     }).catch(error => {
       console.error("Firebase veritabanı okuma hatası: ", error);
       displayMessage("Giriş yaparken bir sorun oluştu (veritabanı bağlantısı). Lütfen internet bağlantınızı kontrol edin.");
@@ -614,12 +626,14 @@
       document.getElementById("balance").textContent = "Bakiye: ∞ (Admin)";
       return;
     }
+    // onValue sürekli dinleme yapar. Bakiye anlık değiştiği için bu uygundur.
     onValue(ref(db, 'users/' + currentUser + '/balance'), snap => {
       document.getElementById("balance").textContent = "Bakiye: " + (snap.val() || 0) + " puan";
     });
   }
 
   function loadUserRankingsAndBoxCounts() {
+    // onValue sürekli dinleme yapar. Kullanıcı sıralaması değiştiğinde güncellenir.
     onValue(ref(db, 'users'), userSnap => {
       let usersData = userSnap.val();
 
@@ -634,6 +648,7 @@
       let totalUsers = 0;
 
       allUsersArray.forEach(([username, userData]) => {
+        // Admin kullanıcısını sıralamadan hariç tutuyoruz
         if (username === "weizendtv" && isAdmin) return;
 
         totalUsers++;
@@ -664,6 +679,7 @@
   }
 
   function loadWinners() {
+    // onValue sürekli dinleme yapar. Kazananlar listesi değiştiğinde güncellenir.
     onValue(ref(db, 'winners'), snap => {
       let data = snap.val();
       if (!data) { document.getElementById("winners").innerHTML = "Henüz kazanan yok."; return; }
@@ -676,6 +692,7 @@
   }
 
   function loadPendingUsers() {
+    // onValue sürekli dinleme yapar. Onay bekleyenler listesi değiştiğinde güncellenir.
     onValue(ref(db, 'users'), snap => {
       const data = snap.val();
       let html = "";
@@ -693,11 +710,12 @@
   }
 
   function loadAllUsers() {
+    // onValue sürekli dinleme yapar. Tüm kullanıcılar listesi değiştiğinde güncellenir.
     onValue(ref(db, 'users'), snap => {
       const data = snap.val();
       let html = "";
       for (const u in data) {
-        if (u === "weizendtv" && isAdmin) continue;
+        if (u === "weizendtv" && isAdmin) continue; // Admini listede gösterme
 
         html += `<div class="userItem" onclick="openPointAdjustmentModal('${u}')">
             <span>${u} - ${data[u].balance} puan ${data[u].blocked ? '(Engelli)' : ''}</span>
@@ -805,8 +823,8 @@
         .then(() => {
           displayMessage(`${targetUserForAdjustment} kullanıcısının yeni bakiyesi: ${userBalance} puan`);
           closePointAdjustmentModal();
-          loadAllUsers();
-          loadUserRankingsAndBoxCounts();
+          loadAllUsers(); // Liste güncellenir
+          loadUserRankingsAndBoxCounts(); // Sıralama güncellenir
         })
         .catch(error => console.error("Bakiye güncelleme hatası: ", error));
     }, {
@@ -903,7 +921,7 @@
     customConfirm(`Tüm onaylı ve engellenmemiş kullanıcılara ${add ? 'eklemek' : 'silmek'} istediğinizden emin misiniz?`, (result) => {
       if (result) {
         onValue(ref(db, 'users'), (snap) => {
-          const updatesObj = {}; // Renamed from 'updates' to 'updatesObj' to avoid conflict with imported 'update' function
+          const updatesObj = {};
           snap.forEach(child => {
             if (child.val().approved && !child.val().blocked && child.key !== "weizendtv") {
               let balance = child.val().balance || 0;
@@ -911,6 +929,7 @@
               updatesObj['users/' + child.key + '/balance'] = balance;
             }
           });
+          // Update fonksiyonu doğrudan root (/) referansına updatesObj'yi uygulayabilir
           update(ref(db), updatesObj)
             .then(() => displayMessage("Tüm onaylı kullanıcıların bakiyeleri güncellendi."))
             .catch(error => console.error("Toplu bakiye güncelleme hatası: ", error));
@@ -946,6 +965,7 @@
   }
 
   function loadBoxes() {
+    // onValue sürekli dinleme yapar. Kutuların durumu değiştiğinde güncellenir.
     onValue(ref(db, 'boxes'), snap => {
       if (!snap.exists()) {
         createBoxes();
@@ -993,6 +1013,7 @@
       return;
     }
 
+    // Kullanıcının güncel verisini tek seferlik oku
     onValue(ref(db, 'users/' + currentUser), (snap) => {
       let user = snap.val();
       if (!user) {
@@ -1032,6 +1053,7 @@
         displayMessage(`Kutu açıldı. ${COST_PER_BOX} puan harcadınız. Yeni bakiyeniz: ${user.balance}`);
       }
 
+      // Toplu güncelleme yap
       update(ref(db), updatesObj)
         .then(() => renderBoxes())
         .catch(error => console.error("Kutu açma işlemi hatası: ", error));
@@ -1062,7 +1084,7 @@
   function resetGame() {
     customConfirm("Oyunu sıfırlamak istediğinize emin misiniz? Tüm kutular kapanacak ve yeni bir kazanan kutusu belirlenecek. Kullanıcı bakiyeleri etkilenmez.", (result) => {
       if (result) {
-        createBoxes();
+        createBoxes(); // Kutuları yeniden oluşturur (kapatır ve yeni kazanan belirler)
 
         onValue(ref(db, 'users'), (snap) => {
           const updatesObj = {};
@@ -1132,6 +1154,7 @@
   }
 
   function loadTotalOpenedBoxesCount() {
+    // onValue sürekli dinleme yapar. Açılan kutu sayısı değiştiğinde güncellenir.
     onValue(ref(db, 'boxes'), snap => {
       const allBoxes = snap.val();
       let openedCount = 0;
